@@ -1,10 +1,10 @@
-import { app, BrowserWindow, Menu, shell, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import {app, BrowserWindow, dialog, ipcMain, shell} from 'electron'
+import {join} from 'path'
 
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1200,
+    width: 1250,
     height: 800,
     minWidth: 800,
     minHeight: 600,
@@ -84,12 +84,11 @@ ipcMain.handle('show-save-dialog', async () => {
 })
 
 ipcMain.handle('show-open-dialog', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [
-      { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
-      { name: 'All Files', extensions: ['*'] }
-    ]
+    return await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+          {name: 'Excel Files', extensions: ['xlsx', 'xls']},
+          {name: 'All Files', extensions: ['*']}
+      ]
   })
-  return result
 })

@@ -2,6 +2,10 @@ import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
 import router from './router'
+import { createPinia } from 'pinia'
+
+// 初始化全局错误处理器
+import { errorHandler } from '@/utils/errorHandler'
 
 // Element Plus
 import ElementPlus from 'element-plus'
@@ -31,8 +35,12 @@ use([
   GridComponent
 ])
 
-// 创建Vue应用实例
+// 创建应用实例
 const app = createApp(App)
+
+// 使用Pinia
+const pinia = createPinia()
+app.use(pinia)
 
 // 使用Element Plus
 app.use(ElementPlus)

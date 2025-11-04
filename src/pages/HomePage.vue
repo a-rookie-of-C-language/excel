@@ -148,7 +148,7 @@ const systemStats = ref({
 
 // 处理上传点击
 const handleUploadClick = () => {
-  router.push('/upload')
+  router.push('/import')
 }
 
 // 处理快速操作

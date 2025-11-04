@@ -1,118 +1,173 @@
 <template>
-  <div class="px-4 py-6">
+  <div class="p-6 bg-gray-50 min-h-screen">
     <!-- 页面标题 -->
-    <div class="mb-8">
+    <div class="mb-6">
       <h1 class="text-2xl font-bold text-gray-900 mb-2">数据预览</h1>
-      <p class="text-gray-600">查看和验证已上传的成绩数据，确保数据完整性和准确性</p>
+      <p class="text-gray-600">查看导入的学生成绩数据，确认数据准确性后开始分析</p>
     </div>
 
-    <!-- 基本信息卡片 -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">基本信息</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-blue-50 rounded-lg p-4">
-          <div class="text-sm text-blue-600 mb-1">学期</div>
-          <div class="font-medium text-blue-900">{{ basicInfo.semester }}</div>
+    <!-- 数据概览卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      <div class="bg-white p-6 rounded-lg shadow-sm">
+        <div class="flex items-center">
+          <div class="p-3 bg-blue-100 rounded-lg">
+            <User class="w-6 h-6 text-blue-600" />
+          </div>
+          <div class="ml-4">
+            <p class="text-sm text-gray-600">总学生数</p>
+            <p class="text-2xl font-bold text-gray-900">{{ basicInfo?.totalStudents || 0 }}</p>
+          </div>
         </div>
-        <div class="bg-green-50 rounded-lg p-4">
-          <div class="text-sm text-green-600 mb-1">年级</div>
-          <div class="font-medium text-green-900">{{ basicInfo.grade }}</div>
+      </div>
+
+      <div class="bg-white p-6 rounded-lg shadow-sm">
+        <div class="flex items-center">
+          <div class="p-3 bg-green-100 rounded-lg">
+            <Document class="w-6 h-6 text-green-600" />
+          </div>
+          <div class="ml-4">
+            <p class="text-sm text-gray-600">课程数量</p>
+            <p class="text-2xl font-bold text-gray-900">{{ basicInfo?.courses?.length || 0 }}</p>
+          </div>
         </div>
-        <div class="bg-purple-50 rounded-lg p-4">
-          <div class="text-sm text-purple-600 mb-1">学生总数</div>
-          <div class="font-medium text-purple-900">{{ basicInfo.totalStudents }}</div>
+      </div>
+
+      <div class="bg-white p-6 rounded-lg shadow-sm">
+        <div class="flex items-center">
+          <div class="p-3 bg-purple-100 rounded-lg">
+            <User class="w-6 h-6 text-purple-600" />
+          </div>
+          <div class="ml-4">
+            <p class="text-sm text-gray-600">专业数量</p>
+            <p class="text-2xl font-bold text-gray-900">{{ basicInfo?.majors?.length || 0 }}</p>
+          </div>
         </div>
-        <div class="bg-orange-50 rounded-lg p-4">
-          <div class="text-sm text-orange-600 mb-1">课程数量</div>
-          <div class="font-medium text-orange-900">{{ basicInfo.courses.length }}</div>
+      </div>
+
+      <div class="bg-white p-6 rounded-lg shadow-sm">
+        <div class="flex items-center">
+          <div class="p-3 bg-orange-100 rounded-lg">
+            <Warning class="w-6 h-6 text-orange-600" />
+          </div>
+          <div class="ml-4">
+            <p class="text-sm text-gray-600">数据完整度</p>
+            <p class="text-2xl font-bold text-gray-900">{{ dataQuality.completeness }}%</p>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 专业分布 -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">专业分布</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div v-for="major in majorDistribution" :key="major.name" 
-             class="bg-gray-50 rounded-lg p-4 text-center">
-          <div class="text-2xl font-bold text-gray-900 mb-1">{{ major.count }}</div>
-          <div class="text-sm text-gray-600">{{ major.name }}</div>
+    <!-- 筛选条件 -->
+    <div class="bg-white p-6 rounded-lg shadow-sm mb-6">
+      <div class="flex flex-wrap gap-4 items-center">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">专业筛选</label>
+          <el-select v-model="selectedMajor" placeholder="选择专业" clearable @change="filterData">
+            <el-option
+              v-for="major in (basicInfo?.majors || [])"
+              :key="major"
+              :label="major"
+              :value="major"
+            />
+          </el-select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">班级筛选</label>
+          <el-select v-model="selectedClass" placeholder="选择班级" clearable @change="filterData">
+            <el-option
+              v-for="cls in classList"
+              :key="cls"
+              :label="cls"
+              :value="cls"
+            />
+          </el-select>
+        </div>
+
+        <div class="flex-1"></div>
+
+        <div>
+          <el-button @click="exportData">
+            导出预览数据
+          </el-button>
         </div>
       </div>
     </div>
 
     <!-- 数据表格 -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-900">学生成绩数据</h3>
-        <div class="flex space-x-4">
-          <el-select v-model="selectedMajor" placeholder="选择专业" clearable @change="filterData">
-            <el-option label="全部专业" value="" />
-            <el-option 
-              v-for="major in basicInfo.majors" 
-              :key="major" 
-              :label="major" 
-              :value="major" 
-            />
-          </el-select>
-          <el-select v-model="selectedClass" placeholder="选择班级" clearable @change="filterData">
-            <el-option label="全部班级" value="" />
-            <el-option 
-              v-for="className in classList" 
-              :key="className" 
-              :label="className" 
-              :value="className" 
-            />
-          </el-select>
-        </div>
+    <div class="bg-white rounded-lg shadow-sm">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">学生成绩数据</h2>
       </div>
 
-      <el-table 
-        :data="filteredData" 
-        stripe 
-        border
-        height="500"
-        :header-cell-style="{ backgroundColor: '#f8fafc', color: '#374151' }"
-      >
-        <el-table-column prop="studentId" label="学号" width="120" fixed="left" />
-        <el-table-column prop="studentName" label="姓名" width="100" fixed="left" />
-        <el-table-column prop="className" label="班级" width="120" />
-        <el-table-column prop="major" label="专业" width="150" />
-        <el-table-column 
-          v-for="course in basicInfo.courses" 
-          :key="course"
-          :prop="course"
-          :label="course"
-          width="100"
-          align="center"
-        >
-          <template #default="{ row }">
-            <span :class="getScoreColor(getCourseScore(row, course))">
-              {{ getCourseScore(row, course) || '-' }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="平均分" width="80" align="center">
-          <template #default="{ row }">
-            <span class="font-medium">{{ calculateAverage(row).toFixed(1) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="挂科数" width="80" align="center">
-          <template #default="{ row }">
-            <span :class="getFailCountColor(getFailCount(row))">
-              {{ getFailCount(row) }}
-            </span>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="overflow-x-auto">
+        <el-table :data="filteredData" style="width: 100%" stripe>
+          <!-- 基本信息 -->
+          <el-table-column prop="className" label="班级" width="100" />
+          <el-table-column prop="studentId" label="学号" width="120" />
+          <el-table-column prop="studentName" label="姓名" width="100" />
+          <el-table-column prop="courseName" label="课程名称" width="150" />
+          <el-table-column prop="score" label="成绩" width="80">
+            <template #default="{ row }">
+              <span :class="getScoreColor(row.score)">
+                {{ row.score }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="academicYear" label="学年" width="100" />
+          <el-table-column prop="semester" label="学期" width="80" />
+          <el-table-column prop="studentType" label="学生类别" width="100" />
+          <el-table-column prop="college" label="学院" width="120" />
+          <el-table-column prop="major" label="专业" width="150" />
+          <el-table-column prop="grade" label="年级" width="80" />
+          <el-table-column prop="studentMark" label="学生标记" width="100" />
+          
+          <!-- 课程信息 -->
+          <el-table-column prop="teachingCollege" label="开课学院" width="120" />
+          <el-table-column prop="courseCode" label="课程代码" width="120" />
+          <el-table-column prop="teachingClass" label="教学班" width="100" />
+          <el-table-column prop="teacher" label="任课教师" width="100" />
+          <el-table-column prop="credit" label="学分" width="80" />
+          <el-table-column prop="scoreRemark" label="成绩备注" width="100" />
+          <el-table-column prop="examNature" label="考试性质" width="100" />
+          <el-table-column prop="gradePoint" label="绩点" width="80" />
+          <el-table-column prop="courseMark" label="课程标记" width="100" />
+          <el-table-column prop="courseCategory" label="课程类别" width="100" />
+          <el-table-column prop="courseBelonging" label="课程归属" width="100" />
+          <el-table-column prop="courseNature" label="课程性质" width="100" />
+          <el-table-column prop="assessmentMethod" label="考核方式" width="100" />
+          <el-table-column prop="isScoreVoid" label="是否成绩作废" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.isScoreVoid ? 'danger' : 'success'" size="small">
+                {{ row.isScoreVoid ? '是' : '否' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="submitter" label="提交人" width="100" />
+          <el-table-column prop="submitTime" label="提交时间" width="150" />
+          <el-table-column prop="isDegreeRequired" label="是否学位课程" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.isDegreeRequired ? 'success' : 'info'" size="small">
+                {{ row.isDegreeRequired ? '是' : '否' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="gender" label="性别" width="60" />
+          <el-table-column prop="majorDirection" label="专业方向" width="120" />
+          <el-table-column prop="courseNameEn" label="课程英文名称" width="180" />
+          <el-table-column prop="remarks" label="备注信息" width="120" />
+          <el-table-column prop="creditGradePoint" label="学分绩点" width="100" />
+          <el-table-column prop="courseType" label="开课类型" width="100" />
+        </el-table>
+      </div>
 
       <!-- 分页 -->
-      <div class="mt-4 flex justify-center">
+      <div class="p-6 border-t border-gray-200">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[20, 50, 100]"
-          :total="filteredData.length"
+          :page-sizes="[20, 50, 100, 200]"
+          :total="totalRecords"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
@@ -120,29 +175,10 @@
       </div>
     </div>
 
-    <!-- 数据质量检查 -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">数据质量检查</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="text-center">
-          <div class="text-2xl font-bold text-green-600 mb-1">{{ dataQuality.completeness }}%</div>
-          <div class="text-sm text-gray-600">数据完整性</div>
-        </div>
-        <div class="text-center">
-          <div class="text-2xl font-bold text-blue-600 mb-1">{{ dataQuality.validScores }}</div>
-          <div class="text-sm text-gray-600">有效成绩数</div>
-        </div>
-        <div class="text-center">
-          <div class="text-2xl font-bold text-red-600 mb-1">{{ dataQuality.missingScores }}</div>
-          <div class="text-sm text-gray-600">缺失成绩数</div>
-        </div>
-      </div>
-    </div>
-
     <!-- 操作按钮 -->
-    <div class="flex justify-between">
+    <div class="flex justify-between mt-6">
       <el-button @click="goBack">
-        返回上传
+        返回导入
       </el-button>
       <div class="space-x-4">
         <el-button @click="exportData">
@@ -160,18 +196,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import type { StudentGrade } from '@/types'
+import { User, Document, Warning } from '@element-plus/icons-vue'
+import type { StudentGradeRecord, BasicInfo } from '@/types'
+import { useDataStore } from '@/stores/dataStore'
 
 const router = useRouter()
-
-// 基本信息
-const basicInfo = ref({
-  semester: '2024-2025学年第2学期',
-  grade: '2022级',
-  totalStudents: 156,
-  majors: ['人工智能', '数据科学与大数据技术', '计算机科学与技术'],
-  courses: ['高等数学', '线性代数', '概率论与数理统计', '程序设计基础', '数据结构']
-})
+const dataStore = useDataStore()
 
 // 筛选条件
 const selectedMajor = ref('')
@@ -179,34 +209,31 @@ const selectedClass = ref('')
 const currentPage = ref(1)
 const pageSize = ref(20)
 
-// 模拟学生数据
-const studentData = ref<StudentGrade[]>([])
-
-// 专业分布
-const majorDistribution = computed(() => {
-  const distribution = basicInfo.value.majors.map(major => ({
-    name: major,
-    count: Math.floor(Math.random() * 60) + 30
-  }))
-  return distribution
-})
+// 从store获取数据
+const rawData = computed(() => dataStore.rawData)
+const basicInfo = computed(() => dataStore.basicInfo)
 
 // 班级列表
 const classList = computed(() => {
-  const classes = ['AI2201', 'AI2202', 'DS2201', 'DS2202', 'CS2201', 'CS2202']
-  return classes
+  const classes = new Set<string>()
+  rawData.value.forEach(record => {
+    if (record.className) {
+      classes.add(record.className)
+    }
+  })
+  return Array.from(classes).sort()
 })
 
 // 过滤后的数据
 const filteredData = computed(() => {
-  let data = studentData.value
+  let data = rawData.value
   
   if (selectedMajor.value) {
-    data = data.filter(student => student.major === selectedMajor.value)
+    data = data.filter(record => record.major === selectedMajor.value)
   }
   
   if (selectedClass.value) {
-    data = data.filter(student => student.className === selectedClass.value)
+    data = data.filter(record => record.className === selectedClass.value)
   }
   
   // 分页
@@ -215,92 +242,50 @@ const filteredData = computed(() => {
   return data.slice(start, end)
 })
 
+// 总记录数
+const totalRecords = computed(() => {
+  let data = rawData.value
+  
+  if (selectedMajor.value) {
+    data = data.filter(record => record.major === selectedMajor.value)
+  }
+  
+  if (selectedClass.value) {
+    data = data.filter(record => record.className === selectedClass.value)
+  }
+  
+  return data.length
+})
+
 // 数据质量统计
 const dataQuality = computed(() => {
-  const totalScores = studentData.value.length * basicInfo.value.courses.length
-  const validScores = studentData.value.reduce((count, student) => {
-    return count + student.courses.filter(course => course.score > 0).length
-  }, 0)
+  const totalRecords = rawData.value.length
+  const validRecords = rawData.value.filter(record => 
+    !record.isScoreVoid && 
+    record.score !== null && 
+    record.score !== undefined && 
+    record.score !== ''
+  ).length
   
   return {
-    completeness: Math.round((validScores / totalScores) * 100),
-    validScores,
-    missingScores: totalScores - validScores
+    completeness: totalRecords > 0 ? Math.round((validRecords / totalRecords) * 100) : 0,
+    validRecords,
+    invalidRecords: totalRecords - validRecords
   }
 })
 
-// 生成模拟数据
-const generateMockData = () => {
-  const data: StudentGrade[] = []
-  const majors = basicInfo.value.majors
-  const classes = classList.value
-  
-  for (let i = 1; i <= basicInfo.value.totalStudents; i++) {
-    const major = majors[Math.floor(Math.random() * majors.length)]
-    const className = classes[Math.floor(Math.random() * classes.length)]
-    
-    const courses = basicInfo.value.courses.map(courseName => ({
-      courseName,
-      courseCode: `CS${Math.floor(Math.random() * 1000)}`,
-      teacher: `教师${Math.floor(Math.random() * 10) + 1}`,
-      credit: 3,
-      score: Math.random() > 0.05 ? Math.floor(Math.random() * 40) + 60 : 0, // 5%概率缺失成绩
-      isPassed: false,
-      courseType: '基础课'
-    }))
-    
-    courses.forEach(course => {
-      course.isPassed = course.score >= 60
-    })
-    
-    data.push({
-      studentId: `2022${String(i).padStart(4, '0')}`,
-      studentName: `学生${i}`,
-      className,
-      major,
-      grade: basicInfo.value.grade,
-      semester: basicInfo.value.semester,
-      courses
-    })
-  }
-  
-  studentData.value = data
-}
-
-// 获取课程成绩
-const getCourseScore = (student: StudentGrade, courseName: string) => {
-  const course = student.courses.find(c => c.courseName === courseName)
-  return course?.score || 0
-}
-
 // 获取成绩颜色
-const getScoreColor = (score: number) => {
-  if (score === 0) return 'text-gray-400'
-  if (score < 60) return 'text-red-600'
-  if (score < 70) return 'text-orange-600'
-  if (score < 80) return 'text-yellow-600'
-  if (score < 90) return 'text-blue-600'
+const getScoreColor = (score: string | number) => {
+  if (score === null || score === undefined || score === '') return 'text-gray-400'
+  
+  const numScore = typeof score === 'number' ? score : parseFloat(String(score))
+  if (isNaN(numScore)) return 'text-gray-400'
+  
+  if (numScore < 60) return 'text-red-600'
+  if (numScore < 70) return 'text-orange-600'
+  if (numScore < 80) return 'text-yellow-600'
+  if (numScore < 90) return 'text-blue-600'
   return 'text-green-600'
-}
-
-// 计算平均分
-const calculateAverage = (student: StudentGrade) => {
-  const validScores = student.courses.filter(c => c.score > 0)
-  if (validScores.length === 0) return 0
-  const sum = validScores.reduce((total, course) => total + course.score, 0)
-  return sum / validScores.length
-}
-
-// 获取挂科数
-const getFailCount = (student: StudentGrade) => {
-  return student.courses.filter(c => c.score > 0 && c.score < 60).length
-}
-
-// 获取挂科数颜色
-const getFailCountColor = (count: number) => {
-  if (count === 0) return 'text-green-600'
-  if (count <= 2) return 'text-orange-600'
-  return 'text-red-600'
 }
 
 // 筛选数据
@@ -323,17 +308,25 @@ const exportData = () => {
   ElMessage.success('数据导出功能开发中...')
 }
 
-// 返回上传页面
+// 返回导入页面
 const goBack = () => {
-  router.push('/upload')
+  router.push('/import')
 }
 
 // 跳转到分析页面
 const goToAnalysis = () => {
-  router.push('/report')
+  router.push('/analysis')
+}
+
+// 检查数据状态
+const checkDataStatus = () => {
+  if (!dataStore.isDataLoaded) {
+    ElMessage.warning('暂无数据，请先导入Excel文件')
+    router.push('/import')
+  }
 }
 
 onMounted(() => {
-  generateMockData()
+  checkDataStatus()
 })
 </script>

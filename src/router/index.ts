@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '@/pages/HomePage.vue'
+import ImportPage from '@/pages/ImportPage.vue'
 import StudentInfoPage from '@/pages/StudentInfoPage.vue'
+import AnalysisPage from '@/pages/AnalysisPage.vue'
 import PreviewPage from '@/pages/PreviewPage.vue'
 import ReportPage from '@/pages/ReportPage.vue'
 import ExportPage from '@/pages/ExportPage.vue'
@@ -13,9 +15,19 @@ const routes = [
     component: HomePage,
   },
   {
+    path: '/import',
+    name: 'import',
+    component: ImportPage,
+  },
+  {
     path: '/students',
     name: 'students',
     component: StudentInfoPage,
+  },
+  {
+    path: '/analysis',
+    name: 'analysis',
+    component: AnalysisPage,
   },
   {
     path: '/preview',

@@ -6,6 +6,20 @@
       <p class="text-gray-600">全面分析学生成绩数据，生成详细的统计报告和可视化图表</p>
     </div>
 
+    <!-- 数据状态 -->
+    <div v-if="dataStore.isLoading" class="text-center py-10 text-gray-500">数据加载中...</div>
+    <div v-else-if="!hasData" class="text-center py-12">
+      <el-empty description="暂无数据">
+        <template #image>
+          <div class="text-6xl text-gray-300 mb-4">📄</div>
+        </template>
+        <template #description>
+          <p class="text-gray-500 mb-4">请先导入Excel成绩数据</p>
+        </template>
+        <el-button type="primary" @click="goToImport">导入数据</el-button>
+      </el-empty>
+    </div>
+
     <!-- 总体统计 -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
       <h3 class="text-lg font-semibold text-gray-900 mb-6">总体统计</h3>
@@ -177,306 +191,256 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import VChart from 'vue-echarts'
+import { useDataStore } from '@/stores/dataStore'
 
 const router = useRouter()
+const dataStore = useDataStore()
 
-// 模拟数据
-const mockData = ref({
-  courses: ['高等数学', '线性代数', '概率论与数理统计', '程序设计基础', '数据结构'],
-  majors: ['人工智能', '数据科学与大数据技术', '计算机科学与技术'],
-  students: [] as any[]
-})
+// 数据加载状态与数据源
+const rawStudentData = computed(() => dataStore.processedData || [])
+const hasData = computed(() => dataStore.isDataLoaded && rawStudentData.value.length > 0)
 
-// 总体统计
+// 总体统计（使用真实数据）
 const overallStats = computed(() => {
-  const allScores = mockData.value.students.flatMap(s => s.scores.filter((score: number) => score > 0))
-  const totalScores = allScores.length
-  
-  if (totalScores === 0) return { averageScore: 0, passRate: 0, excellentRate: 0, failRate: 0 }
-  
-  const averageScore = allScores.reduce((sum: number, score: number) => sum + score, 0) / totalScores
-  const passCount = allScores.filter((score: number) => score >= 60).length
-  const excellentCount = allScores.filter((score: number) => score >= 90).length
-  const failCount = allScores.filter((score: number) => score < 60).length
-  
+  if (!hasData.value) return { averageScore: 0, passRate: 0, excellentRate: 0, failRate: 0 }
+
+  const scores: number[] = []
+  rawStudentData.value.forEach(s => {
+    s.courses.forEach(c => {
+      if (!c.isVoid && typeof c.score === 'number' && Number.isFinite(c.score)) {
+        scores.push(Number(c.score))
+      }
+    })
+  })
+
+  const total = scores.length
+  if (total === 0) return { averageScore: 0, passRate: 0, excellentRate: 0, failRate: 0 }
+
+  const sum = scores.reduce((acc, v) => acc + v, 0)
+  const averageScore = sum / total
+  const passCount = scores.filter(v => v >= 60).length
+  const excellentCount = scores.filter(v => v >= 90).length
+  const failCount = scores.filter(v => v < 60).length
+
   return {
     averageScore,
-    passRate: (passCount / totalScores) * 100,
-    excellentRate: (excellentCount / totalScores) * 100,
-    failRate: (failCount / totalScores) * 100
+    passRate: (passCount / total) * 100,
+    excellentRate: (excellentCount / total) * 100,
+    failRate: (failCount / total) * 100,
   }
 })
 
-// 课程分析数据
+// 课程分析（使用真实数据）
 const courseAnalysis = computed(() => {
-  return mockData.value.courses.map((course, index) => {
-    const scores = mockData.value.students
-      .map(s => s.scores[index])
-      .filter(score => score > 0)
-    
-    if (scores.length === 0) {
-      return {
-        courseName: course,
-        averageScore: 0,
-        maxScore: 0,
-        minScore: 0,
-        passRate: 0,
-        excellentRate: 0,
-        standardDeviation: 0,
-        difficulty: '未知'
+  if (!hasData.value) return []
+
+  const courseMap: Record<string, { sum: number; count: number; max: number; min: number; pass: number; excellent: number; squares: number }> = {}
+
+  rawStudentData.value.forEach(s => {
+    s.courses.forEach(c => {
+      if (c.isVoid || typeof c.score !== 'number' || !Number.isFinite(c.score)) return
+      const key = c.courseName || '未知课程'
+      const score = Number(c.score)
+      if (!courseMap[key]) {
+        courseMap[key] = { sum: 0, count: 0, max: -Infinity, min: Infinity, pass: 0, excellent: 0, squares: 0 }
       }
-    }
-    
-    const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length
-    const maxScore = Math.max(...scores)
-    const minScore = Math.min(...scores)
-    const passCount = scores.filter(score => score >= 60).length
-    const excellentCount = scores.filter(score => score >= 90).length
-    const passRate = (passCount / scores.length) * 100
-    const excellentRate = (excellentCount / scores.length) * 100
-    
-    // 计算标准差
-    const variance = scores.reduce((sum, score) => sum + Math.pow(score - averageScore, 2), 0) / scores.length
-    const standardDeviation = Math.sqrt(variance)
-    
-    // 难度评级
+      const bucket = courseMap[key]
+      bucket.sum += score
+      bucket.count += 1
+      bucket.max = Math.max(bucket.max, score)
+      bucket.min = Math.min(bucket.min, score)
+      bucket.pass += score >= 60 ? 1 : 0
+      bucket.excellent += score >= 85 ? 1 : 0
+      bucket.squares += score * score
+    })
+  })
+
+  return Object.entries(courseMap).map(([courseName, v]) => {
+    const averageScore = v.count ? v.sum / v.count : 0
+    const variance = v.count ? (v.squares / v.count) - averageScore * averageScore : 0
+    const standardDeviation = Math.sqrt(Math.max(variance, 0))
+    const passRate = v.count ? (v.pass / v.count) * 100 : 0
+    const excellentRate = v.count ? (v.excellent / v.count) * 100 : 0
+
     let difficulty = '中等'
     if (passRate >= 90) difficulty = '简单'
     else if (passRate >= 70) difficulty = '较易'
     else if (passRate >= 50) difficulty = '中等'
     else if (passRate >= 30) difficulty = '较难'
     else difficulty = '困难'
-    
+
     return {
-      courseName: course,
+      courseName,
       averageScore,
-      maxScore,
-      minScore,
+      maxScore: v.max === -Infinity ? 0 : v.max,
+      minScore: v.min === Infinity ? 0 : v.min,
       passRate,
       excellentRate,
       standardDeviation,
-      difficulty
-    }
-  })
-})
-
-// 专业分析数据
-const majorAnalysis = computed(() => {
-  return mockData.value.majors.map((major, majorIndex) => {
-    const majorStudents = mockData.value.students.filter(s => s.majorIndex === majorIndex)
-    const allScores = majorStudents.flatMap(s => s.scores.filter((score: number) => score > 0))
-    
-    if (allScores.length === 0) {
-      return {
-        majorName: major,
-        studentCount: majorStudents.length,
-        averageScore: 0,
-        passRate: 0,
-        excellentRate: 0,
-        failCount: 0,
-        ranking: 3
-      }
-    }
-    
-    const averageScore = allScores.reduce((sum: number, score: number) => sum + score, 0) / allScores.length
-    const passCount = allScores.filter((score: number) => score >= 60).length
-    const excellentCount = allScores.filter((score: number) => score >= 90).length
-    const failStudents = majorStudents.filter(s => s.scores.some((score: number) => score > 0 && score < 60))
-    
-    return {
-      majorName: major,
-      studentCount: majorStudents.length,
-      averageScore,
-      passRate: (passCount / allScores.length) * 100,
-      excellentRate: (excellentCount / allScores.length) * 100,
-      failCount: failStudents.length,
-      ranking: majorIndex + 1
+      difficulty,
     }
   }).sort((a, b) => b.averageScore - a.averageScore)
-    .map((item, index) => ({ ...item, ranking: index + 1 }))
 })
 
-// 成绩分布图配置
-const scoreDistributionOption = computed(() => ({
-  title: {
-    text: '成绩分布',
-    left: 'center',
-    textStyle: { fontSize: 14 }
-  },
-  tooltip: {
-    trigger: 'item',
-    formatter: '{a} <br/>{b}: {c} ({d}%)'
-  },
-  legend: {
-    orient: 'vertical',
-    left: 'left',
-    data: ['优秀(90-100)', '良好(80-89)', '中等(70-79)', '及格(60-69)', '不及格(0-59)']
-  },
-  series: [
-    {
-      name: '成绩分布',
-      type: 'pie',
-      radius: '50%',
-      data: [
-        { value: 25, name: '优秀(90-100)' },
-        { value: 35, name: '良好(80-89)' },
-        { value: 40, name: '中等(70-79)' },
-        { value: 35, name: '及格(60-69)' },
-        { value: 21, name: '不及格(0-59)' }
-      ],
-      emphasis: {
-        itemStyle: {
-          shadowBlur: 10,
-          shadowOffsetX: 0,
-          shadowColor: 'rgba(0, 0, 0, 0.5)'
-        }
-      }
-    }
-  ]
-}))
+// 专业分析（使用真实数据）
+const majorAnalysis = computed(() => {
+  if (!hasData.value) return []
 
-// 专业对比图配置
-const majorComparisonOption = computed(() => ({
-  title: {
-    text: '专业平均分对比',
-    left: 'center',
-    textStyle: { fontSize: 14 }
-  },
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: { type: 'shadow' }
-  },
-  xAxis: {
-    type: 'category',
-    data: mockData.value.majors,
-    axisLabel: {
-      interval: 0,
-      rotate: 45
-    }
-  },
-  yAxis: {
-    type: 'value',
-    min: 0,
-    max: 100
-  },
-  series: [
-    {
-      name: '平均分',
-      type: 'bar',
-      data: [78.5, 82.3, 75.8],
-      itemStyle: {
-        color: '#3b82f6'
-      }
-    }
-  ]
-}))
+  const majors = [...new Set(rawStudentData.value.map(s => s.major || '未知专业'))]
 
-// 课程难度分析配置
-const courseDifficultyOption = computed(() => ({
-  title: {
-    text: '课程难度分析',
-    left: 'center',
-    textStyle: { fontSize: 14 }
-  },
-  tooltip: {
-    trigger: 'axis'
-  },
-  legend: {
-    data: ['平均分', '及格率']
-  },
-  xAxis: {
-    type: 'category',
-    data: mockData.value.courses,
-    axisLabel: {
-      interval: 0,
-      rotate: 45
-    }
-  },
-  yAxis: [
-    {
-      type: 'value',
-      name: '平均分',
-      min: 0,
-      max: 100,
-      position: 'left'
-    },
-    {
-      type: 'value',
-      name: '及格率(%)',
-      min: 0,
-      max: 100,
-      position: 'right'
-    }
-  ],
-  series: [
-    {
-      name: '平均分',
-      type: 'bar',
-      data: [75.2, 68.5, 72.8, 81.3, 69.7],
-      itemStyle: { color: '#10b981' }
-    },
-    {
-      name: '及格率',
-      type: 'line',
-      yAxisIndex: 1,
-      data: [85.5, 72.3, 78.9, 92.1, 74.6],
-      itemStyle: { color: '#f59e0b' }
-    }
-  ]
-}))
+  const result = majors.map((major) => {
+    const students = rawStudentData.value.filter(s => (s.major || '未知专业') === major)
+    const scores: number[] = []
+    let failStudents = 0
 
-// 各分数段分布配置
-const gradeTrendOption = computed(() => ({
-  title: {
-    text: '各分数段分布',
-    left: 'center',
-    textStyle: { fontSize: 14 }
-  },
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: { type: 'shadow' }
-  },
-  xAxis: {
-    type: 'category',
-    data: ['0-59', '60-69', '70-79', '80-89', '90-100']
-  },
-  yAxis: {
-    type: 'value'
-  },
-  series: [
-    {
-      name: '人数',
-      type: 'bar',
-      data: [21, 35, 40, 35, 25],
-      itemStyle: {
-        color: function(params: any) {
-          const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6']
-          return colors[params.dataIndex]
-        }
-      }
-    }
-  ]
-}))
-
-// 生成模拟数据
-const generateMockData = () => {
-  const students = []
-  for (let i = 0; i < 156; i++) {
-    const majorIndex = Math.floor(Math.random() * 3)
-    const scores = mockData.value.courses.map(() => {
-      // 5%概率缺失成绩
-      if (Math.random() < 0.05) return 0
-      return Math.floor(Math.random() * 40) + 60
+    students.forEach(s => {
+      let studentFailed = false
+      s.courses.forEach(c => {
+        if (c.isVoid || typeof c.score !== 'number' || !Number.isFinite(c.score)) return
+        const score = Number(c.score)
+        scores.push(score)
+        if (score < 60) studentFailed = true
+      })
+      if (studentFailed) failStudents += 1
     })
-    
-    students.push({
-      id: i + 1,
-      majorIndex,
-      scores
+
+    const count = scores.length
+    const averageScore = count ? (scores.reduce((acc, v) => acc + v, 0) / count) : 0
+    const passCount = scores.filter(v => v >= 60).length
+    const excellentCount = scores.filter(v => v >= 85).length
+
+    return {
+      majorName: major,
+      studentCount: students.length,
+      averageScore,
+      passRate: count ? (passCount / count) * 100 : 0,
+      excellentRate: count ? (excellentCount / count) * 100 : 0,
+      failCount: failStudents,
+      ranking: 0,
+    }
+  }).sort((a, b) => b.averageScore - a.averageScore)
+
+  // 排名赋值
+  return result.map((item, idx) => ({ ...item, ranking: idx + 1 }))
+})
+
+// 成绩分布图（真实数据）
+const scoreDistributionOption = computed(() => {
+  const bins = { excellent: 0, good: 0, medium: 0, pass: 0, fail: 0 }
+  if (hasData.value) {
+    rawStudentData.value.forEach(s => {
+      s.courses.forEach(c => {
+        if (c.isVoid || typeof c.score !== 'number' || !Number.isFinite(c.score)) return
+        const v = Number(c.score)
+        if (v >= 90) bins.excellent++
+        else if (v >= 80) bins.good++
+        else if (v >= 70) bins.medium++
+        else if (v >= 60) bins.pass++
+        else bins.fail++
+      })
     })
   }
-  mockData.value.students = students
-}
+
+  return {
+    title: { text: '成绩分布', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c} ({d}%)' },
+    legend: { orient: 'vertical', left: 'left', data: ['优秀(90-100)', '良好(80-89)', '中等(70-79)', '及格(60-69)', '不及格(0-59)'] },
+    series: [
+      {
+        name: '成绩分布',
+        type: 'pie',
+        radius: '50%',
+        data: [
+          { value: bins.excellent, name: '优秀(90-100)' },
+          { value: bins.good, name: '良好(80-89)' },
+          { value: bins.medium, name: '中等(70-79)' },
+          { value: bins.pass, name: '及格(60-69)' },
+          { value: bins.fail, name: '不及格(0-59)' },
+        ],
+        emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } },
+      },
+    ],
+  }
+})
+
+// 专业平均分对比（真实数据）
+const majorComparisonOption = computed(() => {
+  const majors = majorAnalysis.value.map(m => m.majorName)
+  const averages = majorAnalysis.value.map(m => Number.isFinite(m.averageScore) ? Number(m.averageScore.toFixed(2)) : 0)
+
+  return {
+    title: { text: '专业平均分对比', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    xAxis: { type: 'category', data: majors, axisLabel: { interval: 0, rotate: 45 } },
+    yAxis: { type: 'value', min: 0, max: 100 },
+    series: [
+      { name: '平均分', type: 'bar', data: averages, itemStyle: { color: '#3b82f6' } },
+    ],
+  }
+})
+
+// 课程难度分析（真实数据）
+const courseDifficultyOption = computed(() => {
+  const courses = courseAnalysis.value
+  // 可选：限制展示数量，避免标签过多
+  const top = courses.slice(0, 12)
+  const names = top.map(c => c.courseName)
+  const averages = top.map(c => Number.isFinite(c.averageScore) ? Number(c.averageScore.toFixed(2)) : 0)
+  const passRates = top.map(c => Number.isFinite(c.passRate) ? Number(c.passRate.toFixed(2)) : 0)
+
+  return {
+    title: { text: '课程难度分析', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['平均分', '及格率'] },
+    xAxis: { type: 'category', data: names, axisLabel: { interval: 0, rotate: 45 } },
+    yAxis: [
+      { type: 'value', name: '平均分', min: 0, max: 100, position: 'left' },
+      { type: 'value', name: '及格率(%)', min: 0, max: 100, position: 'right' },
+    ],
+    series: [
+      { name: '平均分', type: 'bar', data: averages, itemStyle: { color: '#10b981' } },
+      { name: '及格率', type: 'line', yAxisIndex: 1, data: passRates, itemStyle: { color: '#f59e0b' } },
+    ],
+  }
+})
+
+// 各分数段分布（真实数据）
+const gradeTrendOption = computed(() => {
+  const bins = [0, 0, 0, 0, 0] // 0-59, 60-69, 70-79, 80-89, 90-100
+  if (hasData.value) {
+    rawStudentData.value.forEach(s => {
+      s.courses.forEach(c => {
+        if (c.isVoid || typeof c.score !== 'number' || !Number.isFinite(c.score)) return
+        const v = Number(c.score)
+        if (v < 60) bins[0]++
+        else if (v < 70) bins[1]++
+        else if (v < 80) bins[2]++
+        else if (v < 90) bins[3]++
+        else bins[4]++
+      })
+    })
+  }
+
+  return {
+    title: { text: '各分数段分布', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    xAxis: { type: 'category', data: ['0-59', '60-69', '70-79', '80-89', '90-100'] },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        name: '人数',
+        type: 'bar',
+        data: bins,
+        itemStyle: {
+          color: (params: any) => {
+            const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6']
+            return colors[params.dataIndex]
+          },
+        },
+      },
+    ],
+  }
+})
 
 // 获取成绩颜色
 const getScoreColor = (score: number) => {
@@ -500,10 +464,10 @@ const getPassRateColor = (rate: number) => {
 const getDifficultyType = (difficulty: string) => {
   const typeMap: Record<string, string> = {
     '简单': 'success',
-    '较易': 'primary',
+    '较易': 'info',
     '中等': 'warning',
     '较难': 'danger',
-    '困难': 'danger'
+    '困难': 'danger',
   }
   return typeMap[difficulty] || 'info'
 }
@@ -511,7 +475,7 @@ const getDifficultyType = (difficulty: string) => {
 // 获取排名类型
 const getRankingType = (ranking: number) => {
   if (ranking === 1) return 'success'
-  if (ranking === 2) return 'primary'
+  if (ranking === 2) return 'info'
   if (ranking === 3) return 'warning'
   return 'info'
 }
@@ -526,12 +490,15 @@ const goBack = () => {
   router.push('/preview')
 }
 
+const goToImport = () => {
+  router.push('/import')
+}
+
 // 跳转到导出页面
 const goToExport = () => {
   router.push('/export')
 }
 
-onMounted(() => {
-  generateMockData()
-})
+// 移除模拟数据生成
+// onMounted(() => {})
 </script>
