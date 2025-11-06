@@ -52,7 +52,7 @@ export class ErrorHandler {
         window.location.reload()
       }, 2000)
     } else {
-      ElMessage.error(message)
+
     }
   }
   

@@ -2,18 +2,17 @@
   <div class="min-h-screen bg-gray-50">
     <!-- 顶部导航栏 -->
     <header class="bg-white shadow-sm border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pr-16 md:pr-24 lg:pr-32">
         <div class="flex justify-between items-center h-16">
           <!-- 左侧标题 -->
           <div class="flex items-center">
             <div class="flex-shrink-0">
               <h1 class="text-xl font-semibold text-gray-900">
-                重庆理工大学两江人工智能学院成绩分析系统
+                成绩分析系统
               </h1>
             </div>
           </div>
-          
-          <!-- 右侧导航 -->
+
           <nav class="hidden md:flex space-x-8">
             <button
               v-for="item in navItems"
@@ -52,7 +51,6 @@ const navItems = [
   { name: 'analysis', path: '/analysis', label: '成绩分析', icon: TrendingUp },
   { name: 'preview', path: '/preview', label: '数据预览', icon: Eye },
   { name: 'report', path: '/report', label: '分析报告', icon: BarChart3 },
-  { name: 'export', path: '/export', label: '报告导出', icon: Download },
 ]
 
 // 导航函数

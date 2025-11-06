@@ -428,7 +428,7 @@ const gradeTrendOption = computed(() => {
     yAxis: { type: 'value' },
     series: [
       {
-        name: '人数',
+        name: '人次',
         type: 'bar',
         data: bins,
         itemStyle: {

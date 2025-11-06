@@ -1,11 +1,10 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router'
 import HomePage from '@/pages/HomePage.vue'
 import ImportPage from '@/pages/ImportPage.vue'
 import StudentInfoPage from '@/pages/StudentInfoPage.vue'
 import AnalysisPage from '@/pages/AnalysisPage.vue'
 import PreviewPage from '@/pages/PreviewPage.vue'
 import ReportPage from '@/pages/ReportPage.vue'
-import ExportPage from '@/pages/ExportPage.vue'
 
 // 定义路由配置
 const routes = [
@@ -39,16 +38,11 @@ const routes = [
     name: 'report',
     component: ReportPage,
   },
-  {
-    path: '/export',
-    name: 'export',
-    component: ExportPage,
-  },
 ]
 
-// 创建路由实例
+const isElectron = navigator.userAgent.toLowerCase().includes('electron') || window.location.protocol === 'file:'
 const router = createRouter({
-  history: createWebHistory(),
+  history: isElectron ? createWebHashHistory() : createWebHistory(),
   routes,
 })
 

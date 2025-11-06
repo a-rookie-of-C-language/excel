@@ -62,8 +62,8 @@
     "wait-on": "^9.0.1"
   },
   "build": {
-    "appId": "com.webexcel.app",
-    "productName": "WebExcel成绩分析系统",
+    "appId": "site.arookieofc",
+    "productName": "成绩分析系统",
     "directories": {
       "output": "release"
     },
@@ -87,7 +87,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "WebExcel成绩分析系统"
+      "shortcutName": "成绩分析系统"
     },
     "publish": null
   }
