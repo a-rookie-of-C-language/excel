@@ -95,7 +95,31 @@
             <div class="flex justify-between items-center mb-4">
               <h3 class="text-lg font-semibold text-gray-800">各专业学期成绩汇总</h3>
               <div class="flex gap-2">
-                <el-select v-model="selectedSemester" placeholder="选择学期" style="width: 150px">
+                <el-select v-model="selectedGrade" placeholder="选择年级" style="width: 120px" clearable>
+                  <el-option
+                    v-for="grade in gradeOptions"
+                    :key="grade"
+                    :label="grade"
+                    :value="grade"
+                  />
+                </el-select>
+                <el-select v-model="selectedClass" placeholder="选择班级" style="width: 150px" clearable>
+                  <el-option
+                    v-for="className in classOptions"
+                    :key="className"
+                    :label="className"
+                    :value="className"
+                  />
+                </el-select>
+                <el-select v-model="selectedMajor" placeholder="选择专业" style="width: 180px" clearable>
+                  <el-option
+                    v-for="major in majorOptions"
+                    :key="major"
+                    :label="major"
+                    :value="major"
+                  />
+                </el-select>
+                <el-select v-model="selectedSemester" placeholder="选择学期" style="width: 150px" clearable>
                   <el-option
                     v-for="semester in semesterOptions"
                     :key="semester"
@@ -379,6 +403,75 @@
           </div>
         </el-tab-pane>
 
+        <!-- 课程详细分析 -->
+        <el-tab-pane label="课程详细分析" name="course" lazy>
+          <div class="bg-white rounded-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold text-gray-800">课程详细分析</h3>
+              <div class="flex gap-2">
+                <el-select v-model="selectedMajor" placeholder="选择专业" style="width: 180px" clearable>
+                  <el-option
+                    v-for="major in majorOptions"
+                    :key="major"
+                    :label="major"
+                    :value="major"
+                  />
+                </el-select>
+                <el-button type="primary" @click="exportCourseData">
+                  <el-icon><Download /></el-icon>
+                  导出
+                </el-button>
+              </div>
+            </div>
+
+            <el-table :data="courseAnalysisData" border stripe>
+              <el-table-column prop="courseName" label="课程名称" width="200" />
+              <el-table-column prop="teacher" label="任课教师" width="140" />
+              <el-table-column prop="averageScore" label="平均分" width="100" align="center">
+                <template #default="{ row }">
+                  <span :class="getScoreColor(row.averageScore)">
+                    {{ row.averageScore.toFixed(1) }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="studentCount" label="学生人数" width="100" align="center" />
+              <el-table-column prop="maxScore" label="最高分" width="100" align="center" />
+              <el-table-column prop="minScore" label="最低分" width="100" align="center" />
+              <el-table-column prop="passRate" label="及格率" width="100" align="center">
+                <template #default="{ row }">
+                  <span :class="getPassRateColor(row.passRate)">
+                    {{ row.passRate.toFixed(1) }}%
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="excellentRate" label="优秀率" width="100" align="center">
+                <template #default="{ row }">
+                  {{ row.excellentRate.toFixed(1) }}%
+                </template>
+              </el-table-column>
+              <el-table-column prop="standardDeviation" label="标准差" width="100" align="center">
+                <template #default="{ row }">
+                  {{ row.standardDeviation.toFixed(2) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="difficulty" label="难度评级" width="120" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="getDifficultyType(row.difficulty)">
+                    {{ row.difficulty }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="100" align="center">
+                <template #default="{ row }">
+                  <el-button type="text" @click="viewCourseDetail(row)">
+                    详情
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+
         <!-- 已移除：课程分析选项卡（在报告页已有课程报告） -->
       </el-tabs>
     </div>
@@ -391,13 +484,25 @@
       :before-close="handleCloseDetail"
     >
       <div v-if="selectedCourse">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <el-card>
-            <div class="text-center">
-              <div class="text-2xl font-bold text-blue-600">{{ safeToFixed(selectedCourse.avgScore, 1) }}</div>
-              <div class="text-sm text-gray-600">平均分</div>
-            </div>
-          </el-card>
+        <!-- 课程基本信息 -->
+        <div class="bg-blue-50 rounded-lg p-4 mb-6">
+          <h4 class="text-lg font-semibold text-blue-800 mb-3">课程基本信息</h4>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div><span class="text-gray-600">课程名称：</span>{{ selectedCourse.courseName }}</div>
+            <div><span class="text-gray-600">课程代码：</span>{{ selectedCourse.courseCode || '暂无' }}</div>
+            <div><span class="text-gray-600">任课教师：</span>{{ selectedCourse.teacher }}</div>
+            <div><span class="text-gray-600">学生人数：</span>{{ selectedCourse.studentCount }}人</div>
+          </div>
+        </div>
+
+        <!-- 成绩统计卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <el-card>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-blue-600">{{ safeToFixed(selectedCourse.averageScore, 1) }}</div>
+                  <div class="text-sm text-gray-600">平均分</div>
+                </div>
+              </el-card>
           <el-card>
             <div class="text-center">
               <div class="text-2xl font-bold text-green-600">{{ safePercentage(selectedCourse.passRate, 1) }}</div>
@@ -412,9 +517,74 @@
           </el-card>
         </div>
 
-        <div class="bg-gray-50 rounded-lg p-4">
+        <!-- 成绩分布图表 -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
           <h4 class="font-semibold mb-2">成绩分布详情</h4>
           <div ref="courseDetailChartRef" style="height: 300px;"></div>
+        </div>
+
+        <!-- 优秀学生列表（通识课程不显示） -->
+        <div v-if="excellentStudents.length > 0 && !selectedCourse.courseName.includes('通识') && !selectedCourse.courseName.includes('公共')" class="mb-6">
+          <div class="bg-green-50 rounded-lg p-4">
+            <h4 class="text-lg font-semibold text-green-800 mb-3">
+              优秀学生 ({{ excellentStudents.length }}人)
+              <el-tag type="success" size="small" class="ml-2">分数&gt;90分</el-tag>
+            </h4>
+            <el-table :data="excellentStudents" border stripe max-height="300">
+              <el-table-column prop="studentId" label="学号" width="120" />
+              <el-table-column prop="studentName" label="姓名" width="100" />
+              <el-table-column prop="className" label="班级" width="120" />
+              <el-table-column prop="major" label="专业" width="150" />
+              <el-table-column prop="grade" label="年级" width="80" />
+              <el-table-column prop="score" label="成绩" width="100">
+                <template #default="{ row }">
+                  <el-tag type="success">{{ safeToFixed(row.score, 1) }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="gpa" label="绩点" width="80">
+                <template #default="{ row }">
+                  <el-tag :type="getGPATagType(row.gpa)" size="small">
+                    {{ safeToFixed(row.gpa, 2) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
+
+        <!-- 不及格学生列表 -->
+        <div v-if="failingStudents.length > 0" class="mb-6">
+          <div class="bg-red-50 rounded-lg p-4">
+            <h4 class="text-lg font-semibold text-red-800 mb-3">
+              不及格学生 ({{ failingStudents.length }}人)
+              <el-tag type="danger" size="small" class="ml-2">分数&lt;60分</el-tag>
+            </h4>
+            <el-table :data="failingStudents" border stripe max-height="300">
+              <el-table-column prop="studentId" label="学号" width="120" />
+              <el-table-column prop="studentName" label="姓名" width="100" />
+              <el-table-column prop="className" label="班级" width="120" />
+              <el-table-column prop="major" label="专业" width="150" />
+              <el-table-column prop="grade" label="年级" width="80" />
+              <el-table-column prop="score" label="成绩" width="100">
+                <template #default="{ row }">
+                  <el-tag type="danger">{{ safeToFixed(row.score, 1) }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="gpa" label="绩点" width="80">
+                <template #default="{ row }">
+                  <el-tag :type="getGPATagType(row.gpa)" size="small">
+                    {{ safeToFixed(row.gpa, 2) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div v-if="excellentStudents.length === 0 && failingStudents.length === 0" class="text-center text-gray-500 py-8">
+          <el-icon class="text-4xl mb-2"><Document /></el-icon>
+          <p>暂无学生数据</p>
         </div>
       </div>
     </el-dialog>
@@ -453,9 +623,13 @@ const dataAnalyzer = new DataAnalyzer()
 // 响应式数据
 const activeTab = ref('semester')
 const selectedSemester = ref('')
+const selectedGrade = ref('全部年级')
+const selectedClass = ref('')
 const selectedMajor = ref('')
 const showCourseDetail = ref(false)
 const selectedCourse = ref<any>(null)
+const excellentStudents = ref<any[]>([])
+const failingStudents = ref<any[]>([])
 
 // 从store获取数据
 const rawStudentData = computed(() => dataStore.processedData)
@@ -558,9 +732,35 @@ const majorOptions = computed(() => {
   return dataStore.majors
 })
 
+const classOptions = computed(() => {
+  if (!hasData.value) return []
+  const classes = new Set<string>()
+  dataStore.rawData.forEach(record => {
+    if (record.className) classes.add(record.className)
+  })
+  return Array.from(classes).sort()
+})
+
+const gradeOptions = computed(() => {
+  if (!hasData.value) return ['全部年级']
+  const grades = new Set<string>()
+  dataStore.rawData.forEach(record => {
+    if (record.grade) grades.add(record.grade)
+  })
+  return ['全部年级', ...Array.from(grades).sort()]
+})
+
 const semesterSummary = computed(() => {
   if (!hasData.value) return []
-  return dataAnalyzer.analyzeSemesterSummary(rawStudentData.value)
+  // 依据所选学期、年级、班级、专业过滤
+  const filtered = rawStudentData.value.filter(s => {
+    const matchSemester = selectedSemester.value ? s.semester === selectedSemester.value : true
+    const matchGrade = selectedGrade.value === '全部年级' ? true : s.grade === selectedGrade.value
+    const matchClass = selectedClass.value ? s.className === selectedClass.value : true
+    const matchMajor = selectedMajor.value ? s.major === selectedMajor.value : true
+    return matchSemester && matchGrade && matchClass && matchMajor
+  })
+  return dataAnalyzer.analyzeSemesterSummary(filtered)
 })
 
 const finalExamsAnalysis = computed(() => {
@@ -621,6 +821,72 @@ const teacherAnalysis = computed(() => {
   }))
 })
 
+// 课程分析数据（按 课程+教师 聚合，使用标准化分数）
+const courseAnalysisData = computed(() => {
+  if (!hasData.value) return []
+
+  type Bucket = { sum: number; count: number; max: number; min: number; pass: number; excellent: number; squares: number; courseName: string; teacher: string; courseCode?: string }
+  const courseMap: Record<string, Bucket> = {}
+
+  // 根据选中的专业过滤数据
+  const filteredData = selectedMajor.value ? rawStudentData.value.filter(s => s.major === selectedMajor.value) : rawStudentData.value
+
+  filteredData.forEach(s => {
+    s.courses.forEach(c => {
+      if (c.isVoid) return
+      const score = typeof c.normalizedScore === 'number' && !isNaN(c.normalizedScore) ? c.normalizedScore : null
+      if (score == null) return
+      const courseName = c.courseName || '未知课程'
+      const teacherName = (typeof c.teacher === 'string' && c.teacher.trim().length > 0) ? c.teacher.trim() : '未知教师'
+      const key = `${courseName}@@${teacherName}`
+      if (!courseMap[key]) {
+        courseMap[key] = { sum: 0, count: 0, max: -Infinity, min: Infinity, pass: 0, excellent: 0, squares: 0, courseName, teacher: teacherName, courseCode: c.courseCode }
+      }
+      const bucket = courseMap[key]
+      if (!bucket.courseCode && c.courseCode) bucket.courseCode = c.courseCode
+      bucket.sum += score
+      bucket.count += 1
+      bucket.max = Math.max(bucket.max, score)
+      bucket.min = Math.min(bucket.min, score)
+      bucket.pass += score >= 60 ? 1 : 0
+      // 统一优秀标准为分数>90
+      bucket.excellent += score > 90 ? 1 : 0
+      bucket.squares += score * score
+    })
+  })
+
+  const result = Object.values(courseMap).map(v => {
+    const averageScore = v.count ? v.sum / v.count : 0
+    const variance = v.count ? (v.squares / v.count) - averageScore * averageScore : 0
+    const standardDeviation = Math.sqrt(Math.max(variance, 0))
+    const passRate = v.count ? (v.pass / v.count) * 100 : 0
+    const excellentRate = v.count ? (v.excellent / v.count) * 100 : 0
+
+    let difficulty = '中等'
+    if (passRate >= 90) difficulty = '简单'
+    else if (passRate >= 70) difficulty = '较易'
+    else if (passRate >= 50) difficulty = '中等'
+    else if (passRate >= 30) difficulty = '较难'
+    else difficulty = '困难'
+
+    return {
+      courseName: v.courseName,
+      teacher: v.teacher,
+      courseCode: v.courseCode,
+      studentCount: v.count,
+      averageScore,
+      maxScore: v.max === -Infinity ? 0 : v.max,
+      minScore: v.min === Infinity ? 0 : v.min,
+      passRate,
+      excellentRate,
+      standardDeviation,
+      difficulty,
+    }
+  })
+
+  return result.sort((a, b) => b.averageScore - a.averageScore)
+})
+
 // 课程分析已移除（在报告页提供课程报告），此处不再计算
 
 // 方法
@@ -645,6 +911,36 @@ const goToImport = () => {
 const validateTagType = (type: string): string => {
   const validTypes = ['success', 'info', 'warning', 'danger']
   return validTypes.includes(type) ? type : 'info'
+}
+
+// 成绩颜色获取函数
+const getScoreColor = (score: number) => {
+  if (score >= 90) return 'text-green-600 font-semibold'
+  if (score >= 80) return 'text-blue-600 font-semibold'
+  if (score >= 70) return 'text-yellow-600 font-semibold'
+  if (score >= 60) return 'text-orange-600 font-semibold'
+  return 'text-red-600 font-semibold'
+}
+
+// 及格率颜色获取函数
+const getPassRateColor = (passRate: number) => {
+  if (passRate >= 90) return 'text-green-600 font-semibold'
+  if (passRate >= 70) return 'text-blue-600 font-semibold'
+  if (passRate >= 50) return 'text-yellow-600 font-semibold'
+  if (passRate >= 30) return 'text-orange-600 font-semibold'
+  return 'text-red-600 font-semibold'
+}
+
+// 难度评级标签类型获取函数
+const getDifficultyType = (difficulty: string) => {
+  switch (difficulty) {
+    case '简单': return 'success'
+    case '较易': return 'info'
+    case '中等': return 'warning'
+    case '较难': return 'warning'
+    case '困难': return 'danger'
+    default: return 'info'
+  }
 }
 
 // 标签类型获取函数
@@ -692,7 +988,7 @@ const exportSemesterData = () => {
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `学期成绩汇总_${selectedSemester.value || '全部'}.csv`
+    link.download = `学期成绩汇总_${selectedSemester.value || '全部学期'}_${selectedGrade.value || '全部年级'}.csv`
     link.click()
     
     ElMessage.success('导出成功')
@@ -708,12 +1004,12 @@ const exportFinalData = () => {
     const csvContent = [
       ['课程名称', '课程代码', '任课教师', '专业', '学生数', '平均分', '及格率(%)', '优秀率(%)'],
       ...data.map(row => [
-        row.course,
+        row.courseName,
         row.courseCode || '',
         row.teacher || '',
         row.major || '',
-        row.totalStudents,
-        safeToFixed(row.averageScore, 1),
+        row.studentCount,
+        safeToFixed(row.avgScore, 1),
         safeToFixed(row.passRate, 1),
         safeToFixed(row.excellentRate, 1)
       ])
@@ -761,9 +1057,104 @@ const exportTeacherData = () => {
   }
 }
 
+const exportCourseData = () => {
+  try {
+    const data = courseAnalysisData.value
+    const csvContent = [
+      ['课程名称', '任课教师', '学生人数', '平均分', '最高分', '最低分', '及格率(%)', '优秀率(%)', '标准差', '难度评级'],
+      ...data.map(row => [
+        row.courseName,
+        row.teacher,
+        row.studentCount,
+        safeToFixed(row.averageScore, 1),
+        row.maxScore,
+        row.minScore,
+        safeToFixed(row.passRate, 1),
+        safeToFixed(row.excellentRate, 1),
+        safeToFixed(row.standardDeviation, 2),
+        row.difficulty
+      ])
+    ].map(row => row.join(',')).join('\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `课程详细分析_${selectedMajor.value || '全部专业'}.csv`
+    link.click()
+    
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败')
+  }
+}
+
 // 课程详情
 const viewCourseDetail = (course: any) => {
-  selectedCourse.value = course
+  // 统一字段：平均分使用 averageScore，兼容来源于期末分析的 avgScore
+  selectedCourse.value = {
+    ...course,
+    teacher: (typeof course.teacher === 'string' && course.teacher.trim().length > 0) ? course.teacher.trim() : '未知教师',
+    averageScore: typeof course.averageScore === 'number' && !isNaN(course.averageScore) ? course.averageScore : (typeof course.avgScore === 'number' ? course.avgScore : 0)
+  }
+  
+  // 调试：查看传入课程对象与平均分映射结果
+  console.log('[CourseDetail] incoming course:', course)
+  console.log('[CourseDetail] mapped averageScore:', selectedCourse.value.averageScore)
+  
+  // 分析优秀学生和不及格学生
+  const courseStudents: any[] = []
+  const excellentStudentsList: any[] = []
+  const failingStudentsList: any[] = []
+  
+  rawStudentData.value.forEach(student => {
+    student.courses.forEach(courseItem => {
+      if (!courseItem.isVoid && 
+          courseItem.courseName === course.courseName && 
+          (((course.teacher || '未知教师') === '未知教师') ? true : ((typeof courseItem.teacher === 'string' && courseItem.teacher.trim().length > 0 ? courseItem.teacher.trim() : '未知教师') === (typeof course.teacher === 'string' && course.teacher.trim().length > 0 ? course.teacher.trim() : '未知教师'))) &&
+          courseItem.normalizedScore !== undefined) {
+        
+        const studentInfo = {
+          studentId: student.studentId,
+          studentName: student.studentName,
+          className: student.className,
+          major: student.major,
+          grade: student.grade,
+          score: courseItem.normalizedScore,
+          gpa: courseItem.gpa,
+          isPassed: courseItem.isPassed
+        }
+        
+        courseStudents.push(studentInfo)
+        
+        // 判断是否为通识课程（根据课程名称判断）
+        const isGeneralCourse = course.courseName.includes('通识') || 
+                               course.courseName.includes('公共') || 
+                               course.courseName.includes('必修') ||
+                               course.courseName.includes('选修')
+        
+        if (courseItem.normalizedScore > 90 && !isGeneralCourse) {
+          excellentStudentsList.push(studentInfo)
+        }
+        
+        if (!courseItem.isPassed) {
+          failingStudentsList.push(studentInfo)
+        }
+      }
+    })
+  })
+  
+  // 如果平均分为0或无效，使用收集到的学生成绩计算回退平均分
+  if (!selectedCourse.value.averageScore || isNaN(selectedCourse.value.averageScore)) {
+    const fallbackAvg = courseStudents.length > 0 ? (courseStudents.reduce((sum, s) => sum + (s.score || 0), 0) / courseStudents.length) : 0
+    selectedCourse.value.averageScore = fallbackAvg
+    console.log('[CourseDetail] fallback averageScore:', fallbackAvg)
+  }
+  
+  // 排序：优秀学生按分数降序，不及格学生按分数升序
+  excellentStudents.value = excellentStudentsList.sort((a, b) => b.score - a.score)
+  failingStudents.value = failingStudentsList.sort((a, b) => a.score - b.score)
+  
   showCourseDetail.value = true
   nextTick(() => {
     initCourseDetailChart()
@@ -773,6 +1164,8 @@ const viewCourseDetail = (course: any) => {
 const handleCloseDetail = () => {
   showCourseDetail.value = false
   selectedCourse.value = null
+  excellentStudents.value = []
+  failingStudents.value = []
 }
 
 // 图表初始化
@@ -863,7 +1256,7 @@ const initCourseDetailChart = () => {
     student.courses.forEach(course => {
       if (!course.isVoid && 
           course.courseName === selectedCourse.value.courseName && 
-          course.teacher === selectedCourse.value.teacher &&
+          (((selectedCourse.value.teacher || '未知教师') === '未知教师') ? true : ((typeof course.teacher === 'string' && course.teacher.trim().length > 0 ? course.teacher.trim() : '未知教师') === (typeof selectedCourse.value.teacher === 'string' && selectedCourse.value.teacher.trim().length > 0 ? selectedCourse.value.teacher.trim() : '未知教师'))) &&
           course.normalizedScore !== undefined) {
         courseScores.push(course.normalizedScore)
       }
@@ -953,7 +1346,6 @@ onBeforeUnmount(() => {
     gpaChart.dispose()
     gpaChart = null
   }
-  // 成绩分布图已移除，scoreChart 不再使用
   if (courseDetailChart) {
     courseDetailChart.dispose()
     courseDetailChart = null
