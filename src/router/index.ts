@@ -4,7 +4,6 @@ import ImportPage from '@/pages/ImportPage.vue'
 import StudentInfoPage from '@/pages/StudentInfoPage.vue'
 import AnalysisPage from '@/pages/AnalysisPage.vue'
 import PreviewPage from '@/pages/PreviewPage.vue'
-import ReportPage from '@/pages/ReportPage.vue'
 
 // 定义路由配置
 const routes = [
@@ -32,11 +31,6 @@ const routes = [
     path: '/preview',
     name: 'preview',
     component: PreviewPage,
-  },
-  {
-    path: '/report',
-    name: 'report',
-    component: ReportPage,
   },
 ]
 

@@ -57,43 +57,6 @@
       </div>
     </div>
 
-    <!-- 筛选条件 -->
-    <div class="bg-white p-6 rounded-lg shadow-sm mb-6">
-      <div class="flex flex-wrap gap-4 items-center">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">专业筛选</label>
-          <el-select v-model="selectedMajor" placeholder="选择专业" clearable @change="filterData">
-            <el-option
-              v-for="major in (basicInfo?.majors || [])"
-              :key="major"
-              :label="major"
-              :value="major"
-            />
-          </el-select>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">班级筛选</label>
-          <el-select v-model="selectedClass" placeholder="选择班级" clearable @change="filterData">
-            <el-option
-              v-for="cls in classList"
-              :key="cls"
-              :label="cls"
-              :value="cls"
-            />
-          </el-select>
-        </div>
-
-        <div class="flex-1"></div>
-
-        <div>
-          <el-button @click="exportData">
-            导出预览数据
-          </el-button>
-        </div>
-      </div>
-    </div>
-
     <!-- 数据表格 -->
     <div class="bg-white rounded-lg shadow-sm">
       <div class="p-6 border-b border-gray-200">
@@ -121,7 +84,7 @@
           <el-table-column prop="major" label="专业" width="150" />
           <el-table-column prop="grade" label="年级" width="80" />
           <el-table-column prop="studentMark" label="学生标记" width="100" />
-          
+
           <!-- 课程信息 -->
           <el-table-column prop="teachingCollege" label="开课学院" width="120" />
           <el-table-column prop="courseCode" label="课程代码" width="120" />
@@ -199,6 +162,7 @@ import { ElMessage } from 'element-plus'
 import { User, Document, Warning } from '@element-plus/icons-vue'
 import type { StudentGradeRecord, BasicInfo } from '@/types'
 import { useDataStore } from '@/stores/dataStore'
+import { exportToExcel } from '@/utils/excelExporter'
 
 const router = useRouter()
 const dataStore = useDataStore()
@@ -227,15 +191,15 @@ const classList = computed(() => {
 // 过滤后的数据
 const filteredData = computed(() => {
   let data = rawData.value
-  
+
   if (selectedMajor.value) {
     data = data.filter(record => record.major === selectedMajor.value)
   }
-  
+
   if (selectedClass.value) {
     data = data.filter(record => record.className === selectedClass.value)
   }
-  
+
   // 分页
   const start = (currentPage.value - 1) * pageSize.value
   const end = start + pageSize.value
@@ -245,28 +209,28 @@ const filteredData = computed(() => {
 // 总记录数
 const totalRecords = computed(() => {
   let data = rawData.value
-  
+
   if (selectedMajor.value) {
     data = data.filter(record => record.major === selectedMajor.value)
   }
-  
+
   if (selectedClass.value) {
     data = data.filter(record => record.className === selectedClass.value)
   }
-  
+
   return data.length
 })
 
 // 数据质量统计
 const dataQuality = computed(() => {
   const totalRecords = rawData.value.length
-  const validRecords = rawData.value.filter(record => 
-    !record.isScoreVoid && 
-    record.score !== null && 
-    record.score !== undefined && 
+  const validRecords = rawData.value.filter(record =>
+    !record.isScoreVoid &&
+    record.score !== null &&
+    record.score !== undefined &&
     record.score !== ''
   ).length
-  
+
   return {
     completeness: totalRecords > 0 ? Math.round((validRecords / totalRecords) * 100) : 0,
     validRecords,
@@ -277,10 +241,10 @@ const dataQuality = computed(() => {
 // 获取成绩颜色
 const getScoreColor = (score: string | number) => {
   if (score === null || score === undefined || score === '') return 'text-gray-400'
-  
+
   const numScore = typeof score === 'number' ? score : parseFloat(String(score))
   if (isNaN(numScore)) return 'text-gray-400'
-  
+
   if (numScore < 60) return 'text-red-600'
   if (numScore < 70) return 'text-orange-600'
   if (numScore < 80) return 'text-yellow-600'
@@ -305,7 +269,20 @@ const handleCurrentChange = (val: number) => {
 
 // 导出数据
 const exportData = () => {
-  ElMessage.success('数据导出功能开发中...')
+  try {
+    const headers = ['班级','学号','姓名','课程名称','成绩','学年','学期','学生类别','学院','专业','年级','学生标记','开课学院','课程代码','教学班','任课教师','学分','成绩备注','考试性质','绩点','课程标记','课程类别','课程归属','课程性质','考核方式','是否作废','提交人','提交时间','是否学位课程','性别','专业方向','课程英文名称','备注信息','学分绩点','开课类型']
+    const rows = filteredData.value.map(r => [
+      r.className, r.studentId, r.studentName, r.courseName, r.score, r.academicYear, r.semester, r.studentType, r.college, r.major, r.grade, r.studentMark,
+      r.teachingCollege, r.courseCode, r.teachingClass, r.teacher, r.credit, r.scoreRemark, r.examNature, r.gradePoint, r.courseMark, r.courseCategory,
+      r.courseBelonging, r.courseNature, r.assessmentMethod, r.isScoreVoid ? '是' : '否', r.submitter, r.submitTime, r.isDegreeRequired ? '是' : '否',
+      r.gender, r.majorDirection, r.courseNameEn, r.remarks, r.creditGradePoint, r.courseType
+    ])
+    exportToExcel([{ name: '预览数据', headers, rows }], `预览导出_${selectedMajor.value || '全部专业'}_${selectedClass.value || '全部班级'}`)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    console.error('导出失败:', e)
+    ElMessage.error('导出失败')
+  }
 }
 
 // 返回导入页面

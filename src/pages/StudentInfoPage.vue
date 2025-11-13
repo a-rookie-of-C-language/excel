@@ -435,11 +435,18 @@ const filteredStudents = computed(() => {
   
   // 学业预警筛选
   if (showWarningOnly.value) {
-    filtered = filtered.filter(student => 
-      student.gpa < 2.0 || 
-      student.failedCount >= 3 || 
-      student.passedCredits / student.totalCredits < 0.8
-    )
+    // 统一标准：排除通识课程后挂科学分 > 2
+    filtered = filtered.filter(student => {
+      const failedCredits = (student.courses || [])
+        .filter(c => {
+          const name = (c.courseName || '').toLowerCase()
+          const code = (c.courseCode || '').toUpperCase()
+          const isGeneral = name.includes('通识') || code.startsWith('TS') || code.startsWith('GEN')
+          return !c.isVoid && typeof c.score === 'number' && c.score < 60 && !isGeneral
+        })
+        .reduce((sum, c) => sum + (typeof c.credit === 'number' ? c.credit : 0), 0)
+      return failedCredits > 2
+    })
   }
   
   return filtered
@@ -467,9 +474,18 @@ const statistics = computed(() => {
   const students = filteredStudents.value
   const totalCourses = students.reduce((sum, s) => sum + s.courseCount, 0)
   const totalFailedCourses = students.reduce((sum, s) => sum + s.failedCount, 0)
-  const warningCount = students.filter(s => 
-    s.gpa < 2.0 || s.failedCount >= 3 || s.passedCredits / s.totalCredits < 0.8
-  ).length
+  // 统一标准：排除通识课程后挂科学分 > 2
+  const warningCount = students.filter(s => {
+    const failedCredits = (s.courses || [])
+      .filter(c => {
+        const name = (c.courseName || '').toLowerCase()
+        const code = (c.courseCode || '').toUpperCase()
+        const isGeneral = name.includes('通识') || code.startsWith('TS') || code.startsWith('GEN')
+        return !c.isVoid && typeof c.score === 'number' && c.score < 60 && !isGeneral
+      })
+      .reduce((sum, c) => sum + (typeof c.credit === 'number' ? c.credit : 0), 0)
+    return failedCredits > 2
+  }).length
 
   return {
     totalStudents: students.length,
@@ -505,22 +521,30 @@ const getGPATagType = (gpa: number) => {
 
 // 获取学业预警标签类型
 const getWarningTagType = (student: ProcessedStudentData) => {
-  if (student.gpa < 2.0 || student.failedCount >= 3 || student.passedCredits / student.totalCredits < 0.8) {
-    return validateTagType('danger')
-  }
-  if (student.gpa < 2.5 || student.failedCount >= 2) {
-    return validateTagType('warning')
-  }
-  return validateTagType('success')
+  // 统一标准：排除通识课程后挂科学分 > 2 -> 严重预警
+  const failedCredits = (student.courses || [])
+    .filter(c => {
+      const name = (c.courseName || '').toLowerCase()
+      const code = (c.courseCode || '').toUpperCase()
+      const isGeneral = name.includes('通识') || code.startsWith('TS') || code.startsWith('GEN')
+      return !c.isVoid && typeof c.score === 'number' && c.score < 60 && !isGeneral
+    })
+    .reduce((sum, c) => sum + (typeof c.credit === 'number' ? c.credit : 0), 0)
+  return failedCredits > 2 ? validateTagType('danger') : validateTagType('success')
 }
 
 // 获取学业预警文本
 const getWarningText = (student: ProcessedStudentData) => {
-  if (student.gpa < 2.0) return '严重预警'
-  if (student.failedCount >= 3) return '严重预警'
-  if (student.passedCredits / student.totalCredits < 0.8) return '严重预警'
-  if (student.gpa < 2.5 || student.failedCount >= 2) return '一般预警'
-  return '正常'
+  // 统一标准文本：排除通识课程后挂科学分 > 2 为“严重预警”，否则“正常”
+  const failedCredits = (student.courses || [])
+    .filter(c => {
+      const name = (c.courseName || '').toLowerCase()
+      const code = (c.courseCode || '').toUpperCase()
+      const isGeneral = name.includes('通识') || code.startsWith('TS') || code.startsWith('GEN')
+      return !c.isVoid && typeof c.score === 'number' && c.score < 60 && !isGeneral
+    })
+    .reduce((sum, c) => sum + (typeof c.credit === 'number' ? c.credit : 0), 0)
+  return failedCredits > 2 ? '严重预警' : '正常'
 }
 
 // 搜索处理

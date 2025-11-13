@@ -55,7 +55,7 @@ const REQUIRED_FIELDS = [
 
 // 等级制成绩映射
 const GRADE_LEVEL_MAPPING: Record<string, number> = {
-  '优秀': 95,
+  '优秀': 90,
   '良好': 85,
   '中等': 75,
   '合格': 65,
@@ -275,7 +275,8 @@ export class ExcelParser {
         courseType: record.courseType,
         semester: record.semester,
         status: normalizedScore >= 60 ? '及格' : '不及格',
-        isVoid: record.isScoreVoid
+        isVoid: record.isScoreVoid,
+        examNature: record.examNature
       };
 
       student.courses.push(courseGrade);

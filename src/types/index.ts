@@ -72,6 +72,7 @@ export interface CourseGrade {
   semester: string          // 学期
   status: string           // 状态（及格/不及格/优秀等）
   isVoid: boolean          // 是否作废
+  examNature?: string       // 考试性质（补考/重修/重考等）
 }
 
 // Excel文件解析和验证相关
@@ -112,6 +113,12 @@ export interface StudentInfoStatistics {
 export interface SemesterSummaryByMajor {
   major: string;
   totalStudents: number;
+  uniqueStudentCount: number; // 人数（去重）
+  totalExamCount: number;     // 人次（参加考试次数）
+  excellentStudentCount: number; // 优秀人数（去重）
+  excellentExamCount: number;    // 优秀人次（考试次数）
+  failedStudentCount: number;    // 不及格人数（去重）
+  failedExamCount: number;       // 不及格人次（考试次数）
   averageGPA: number;
   passRate: number;
   excellentRate: number;
@@ -169,16 +176,16 @@ export interface CourseStatistics {
   totalStudents: number     // 选课人数
   averageScore: number      // 平均分
   passRate: number          // 及格率
-  excellentRate: number     // 优秀率（>=85分）
+  excellentRate: number     // 优秀率（>=90分，仅正常考试）
   failCount: number         // 挂科人数
   scoreDistribution: ScoreDistribution  // 分数分布
 }
 
 export interface ScoreDistribution {
-  excellent: number         // 优秀(>=85)
-  good: number             // 良好(75-84)
-  medium: number           // 中等(65-74)
-  pass: number             // 及格(60-64)
+  excellent: number         // 优秀(>=90)
+  good: number             // 良好(80-89)
+  medium: number           // 中等(70-79)
+  pass: number             // 及格(60-69)
   fail: number             // 不及格(<60)
 }
 

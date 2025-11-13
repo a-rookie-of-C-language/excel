@@ -67,13 +67,40 @@ export class DataAnalyzer {
             const allCourses = students.flatMap(s => s.courses);
             const validCourses = allCourses.filter(c => !c.isVoid);
 
+            // 人数（去重）：按学号或姓名去重
+            const uniqueStudentIds = new Set<string>();
+            students.forEach(s => {
+                if (s.studentId) uniqueStudentIds.add(s.studentId);
+                else uniqueStudentIds.add(`${s.studentName}-${s.className}`);
+            });
+            const uniqueStudentCount = uniqueStudentIds.size;
+
+            // 人次：参加考试的次数（所有有效课程条目数）
+            const totalExamCount = validCourses.length;
+
             const totalCredits = validCourses.reduce((sum, course) => sum + (course.credit || 0), 0);
             const totalGradePoints = validCourses.reduce((sum, course) => sum + (course.gpa || 0) * (course.credit || 0), 0);
             const averageGPA = totalCredits > 0 ? totalGradePoints / totalCredits : 0;
 
             const passedCourses = validCourses.filter(c => c.isPassed);
-            const excellentCourses = validCourses.filter(c => (c.normalizedScore || 0) > 90);
+            const excellentCourses = validCourses.filter(c => (c.normalizedScore || 0) >= 90);
             const failedCourses = validCourses.filter(c => !c.isPassed);
+
+            // 优秀/不及格人数（去重）与人次（次数）
+            const excellentStudentIds = new Set<string>();
+            const failedStudentIds = new Set<string>();
+            students.forEach(s => {
+                // 是否该学生有优秀的有效课程
+                const hasExcellent = s.courses.some(c => !c.isVoid && (c.normalizedScore || 0) >= 90);
+                const hasFailed = s.courses.some(c => !c.isVoid && !c.isPassed);
+                const id = s.studentId || `${s.studentName}-${s.className}`;
+                if (hasExcellent) excellentStudentIds.add(id);
+                if (hasFailed) failedStudentIds.add(id);
+            });
+            const excellentStudentCount = excellentStudentIds.size;
+            const failedStudentCount = failedStudentIds.size;
+            const excellentExamCount = excellentCourses.length;
+            const failedExamCount = failedCourses.length;
 
             const passRate = validCourses.length > 0 ? (passedCourses.length / validCourses.length) * 100 : 0;
             const excellentRate = validCourses.length > 0 ? (excellentCourses.length / validCourses.length) * 100 : 0;
@@ -82,6 +109,12 @@ export class DataAnalyzer {
             results.push({
                 major,
                 totalStudents: students.length,
+                uniqueStudentCount,
+                totalExamCount,
+                excellentStudentCount,
+                excellentExamCount,
+                failedStudentCount,
+                failedExamCount,
                 averageGPA: Math.round(averageGPA * 100) / 100,
                 passRate: Math.round(passRate * 10) / 10,
                 excellentRate: Math.round(excellentRate * 10) / 10,
@@ -138,7 +171,7 @@ export class DataAnalyzer {
                 allScores.reduce((sum, score) => sum + score, 0) / allScores.length : 0;
 
             const passedCount = finalExamCourses.filter(c => c.isPassed).length;
-            const excellentCount = finalExamCourses.filter(c => c.normalizedScore > 90).length;
+            const excellentCount = finalExamCourses.filter(c => c.normalizedScore >= 90).length;
 
             const passRate = finalExamCourses.length > 0 ? (passedCount / finalExamCourses.length) * 100 : 0;
             const excellentRate = finalExamCourses.length > 0 ? (excellentCount / finalExamCourses.length) * 100 : 0;
@@ -200,6 +233,16 @@ export class DataAnalyzer {
                 const averageGPA = totalCredits > 0 ? totalGradePoints / totalCredits : 0;
 
                 // 找出表现最好和最差的课程
+                // 注意：下方的“优势/薄弱课程”列表中将排除通识类课程与“军事理论”课程。
+                // 如需调整排除规则，请修改 shouldExcludeFromTopWeak() 逻辑。
+                const shouldExcludeFromTopWeak = (courseName: string): boolean => {
+                    const name = (courseName || '').toLowerCase();
+                    // 规则：
+                    // 1) 课程名包含“通识”
+                    // 2) 课程名包含“军事理论”
+                    // 如果你需要排除更多关键词，可在此处追加条件
+                    return name.includes('通识') || name.includes('军事理论');
+                };
                 const coursePerformance = new Map<string, number[]>();
                 allCourses.forEach(course => {
                     if (!coursePerformance.has(course.courseName)) {
@@ -213,10 +256,13 @@ export class DataAnalyzer {
                     average: scores.reduce((sum, score) => sum + score, 0) / scores.length
                 }));
 
-                courseAverages.sort((a, b) => b.average - a.average);
+                // 排序前先过滤掉需要排除的课程（通识、军事理论）
+                const filteredAverages = courseAverages.filter(c => !shouldExcludeFromTopWeak(c.name));
+                filteredAverages.sort((a, b) => b.average - a.average);
 
-                const topCourses = courseAverages.slice(0, 3).map(c => c.name);
-                const weakCourses = courseAverages.slice(-3).map(c => c.name);
+                // 生成“优势课程”（均值最高的前3门）与“薄弱课程”（均值最低的后3门）
+                const topCourses = filteredAverages.slice(0, 3).map(c => c.name);
+                const weakCourses = filteredAverages.slice(-3).map(c => c.name);
 
                 results.push({
                     grade,
@@ -268,7 +314,7 @@ export class DataAnalyzer {
             const averageScore = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
 
             const passedCount = courses.filter(c => c.isPassed).length;
-            const excellentCount = courses.filter(c => (c.normalizedScore || 0) > 90).length;
+            const excellentCount = courses.filter(c => (c.normalizedScore || 0) >= 90).length;
 
             const passRate = courses.length > 0 ? (passedCount / courses.length) * 100 : 0;
             const excellentRate = courses.length > 0 ? (excellentCount / courses.length) * 100 : 0;
@@ -340,7 +386,7 @@ export class DataAnalyzer {
         const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
 
         const passedCount = courses.filter(c => c.isPassed).length;
-        const excellentCount = courses.filter(c => c.normalizedScore >= 85).length;
+        const excellentCount = courses.filter(c => c.normalizedScore >= 90).length;
         const failCount = courses.filter(c => !c.isPassed).length;
 
         const passRate = (passedCount / courses.length) * 100;
@@ -348,10 +394,10 @@ export class DataAnalyzer {
 
         // 计算分数分布
         const scoreDistribution: ScoreDistribution = {
-            excellent: courses.filter(c => c.normalizedScore > 90).length,
-            good: courses.filter(c => c.normalizedScore >= 80 && c.normalizedScore <= 90).length,
-            medium: courses.filter(c => c.normalizedScore >= 65 && c.normalizedScore < 75).length,
-            pass: courses.filter(c => c.normalizedScore >= 60 && c.normalizedScore < 65).length,
+            excellent: courses.filter(c => c.normalizedScore >= 90).length,
+            good: courses.filter(c => c.normalizedScore >= 80 && c.normalizedScore < 90).length,
+            medium: courses.filter(c => c.normalizedScore >= 70 && c.normalizedScore < 80).length,
+            pass: courses.filter(c => c.normalizedScore >= 60 && c.normalizedScore < 70).length,
             fail: courses.filter(c => c.normalizedScore < 60).length
         };
 

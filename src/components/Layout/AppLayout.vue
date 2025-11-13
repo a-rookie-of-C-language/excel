@@ -50,7 +50,6 @@ const navItems = [
   { name: 'students', path: '/students', label: '学生信息', icon: Users },
   { name: 'analysis', path: '/analysis', label: '成绩分析', icon: TrendingUp },
   { name: 'preview', path: '/preview', label: '数据预览', icon: Eye },
-  { name: 'report', path: '/report', label: '分析报告', icon: BarChart3 },
 ]
 
 // 导航函数
